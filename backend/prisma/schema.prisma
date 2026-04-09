@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String               @id @default(cuid())
+  email        String               @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime             @default(now())
+  resetTokens  PasswordResetToken[]
+  children     Child[]
+  linkCodes    ChildLinkCode[]
+  alerts       ParentAlert[]
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+}
+
+model ChildLinkCode {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  parentId  String
+  parent    User     @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  childName String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+}
+
+model Child {
+  id                     String        @id @default(cuid())
+  parentId               String
+  parent                 User          @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  name                   String
+  age                    Int?
+  device                 String
+  battery                Int           @default(100)
+  location               String        @default("Unknown")
+  lastSeen               DateTime      @default(now())
+  todayScreenTimeMinutes Int           @default(0)
+  screenTimeLimitMinutes Int           @default(120)
+  riskyEvents            Int           @default(0)
+  activeApp              String        @default("Unknown")
+  isOnline               Boolean       @default(true)
+  blockedApps            BlockedApp[]
+  appUsageLogs           AppUsageLog[]
+}
+
+model BlockedApp {
+  id      String @id @default(cuid())
+  childId String
+  child   Child  @relation(fields: [childId], references: [id], onDelete: Cascade)
+  appName String
+
+  @@unique([childId, appName])
+}
+
+model AppUsageLog {
+  id              String   @id @default(cuid())
+  childId         String
+  child           Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  appName         String
+  startedAt       DateTime
+  durationMinutes Int
+}
+
+model ParentAlert {
+  id        String   @id @default(cuid())
+  parentId  String
+  parent    User     @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  childId   String
+  type      String
+  message   String
+  details   String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}

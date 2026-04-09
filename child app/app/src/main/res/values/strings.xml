@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ParentEye Child</string>
+
+    <string name="pair_title">Connect Child Device</string>
+    <string name="pair_subtitle">Enter the 6-digit link code from Parent Eye.</string>
+    <string name="label_link_code">Link code</string>
+    <string name="label_child_name">Child name (optional)</string>
+    <string name="label_device_name">Device model (optional)</string>
+    <string name="label_api_url">Backend URL</string>
+    <string name="default_api_url">http://10.0.2.2:3001</string>
+
+    <string name="connect">Connect</string>
+    <string name="connected">Connected</string>
+    <string name="enable_accessibility">Enable Accessibility</string>
+    <string name="open_dashboard">Open Dashboard</string>
+
+    <string name="status_connected">Child is connected to parent</string>
+    <string name="status_not_connected">Not connected yet</string>
+
+    <string name="screen_time_limit">Screen time limit (minutes)</string>
+    <string name="blocked_apps">Blocked apps</string>
+    <string name="no_blocked_apps">None</string>
+
+    <string name="overlay_blocked_title">App blocked</string>
+    <string name="overlay_time_title">Time limit reached</string>
+    <string name="overlay_reason">Reason</string>
+    <string name="overlay_back">Back to dashboard</string>
+
+    <string name="accessibility_setup_title">Enable monitoring</string>
+    <string name="accessibility_setup_body">Turn on the ParentEye Child accessibility service to enforce blocking and time limits.</string>
+</resources>
+
