@@ -8,7 +8,6 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import com.google.android.material.chip.Chip
 import com.parenteye.child.data.Prefs
 import com.parenteye.child.worker.ConfigSyncWorker
 import java.util.concurrent.TimeUnit
@@ -17,9 +16,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prefs: Prefs
     private lateinit var statusText: TextView
     private lateinit var childIdText: TextView
-    private lateinit var screenTimeLimitText: TextView
-    private lateinit var blockedAppsChipGroup: com.google.android.material.chip.ChipGroup
-    private lateinit var noBlockedAppsText: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,9 +30,6 @@ class MainActivity : AppCompatActivity() {
 
         statusText = findViewById(R.id.statusText)
         childIdText = findViewById(R.id.childIdText)
-        screenTimeLimitText = findViewById(R.id.screenTimeLimitText)
-        blockedAppsChipGroup = findViewById(R.id.blockedAppsChipGroup)
-        noBlockedAppsText = findViewById(R.id.noBlockedAppsText)
 
         val enableAccessibilityButton = findViewById<Button>(R.id.enableAccessibilityButton)
         val refreshConfigButton = findViewById<Button>(R.id.refreshConfigButton)
@@ -55,22 +48,6 @@ class MainActivity : AppCompatActivity() {
     private fun renderUi() {
         statusText.text = getString(R.string.status_connected)
         childIdText.text = "Child ID: ${prefs.getChildId()}"
-        screenTimeLimitText.text = "Screen time limit: ${prefs.getScreenTimeLimitMinutes()} minutes"
-
-        blockedAppsChipGroup.removeAllViews()
-        val blocked = prefs.getBlockedApps()
-        if (blocked.isEmpty()) {
-            noBlockedAppsText.visibility = android.view.View.VISIBLE
-            return
-        }
-        noBlockedAppsText.visibility = android.view.View.GONE
-        for (appName in blocked) {
-            val chip = Chip(this).apply {
-                text = appName
-                isClickable = false
-            }
-            blockedAppsChipGroup.addView(chip)
-        }
     }
 
     private fun refreshConfig() {

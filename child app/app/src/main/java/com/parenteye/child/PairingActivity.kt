@@ -2,22 +2,29 @@ package com.parenteye.child
 
 import android.os.Bundle
 import android.os.Build
+import android.Manifest
+import android.content.pm.PackageManager
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.parenteye.child.data.ChildApiClient
 import com.parenteye.child.data.Prefs
 import com.parenteye.child.worker.ConfigSyncScheduler
 
 class PairingActivity : AppCompatActivity() {
+    private val locationPermReqCode = 301
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_pairing)
 
         val prefs = Prefs(this)
+        requestLocationPermissionsIfNeeded()
 
         val apiUrlInput = findViewById<EditText>(R.id.apiUrlInput)
         val linkCodeInput = findViewById<EditText>(R.id.linkCodeInput)
@@ -81,6 +88,21 @@ class PairingActivity : AppCompatActivity() {
                 }
             }.start()
         }
+    }
+
+    private fun requestLocationPermissionsIfNeeded() {
+        val fineGranted =
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED
+        val coarseGranted =
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED
+        if (fineGranted || coarseGranted) return
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
+            locationPermReqCode
+        )
     }
 }
 

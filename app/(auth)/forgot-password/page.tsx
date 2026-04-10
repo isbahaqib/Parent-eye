@@ -18,6 +18,7 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [resetUrl, setResetUrl] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -33,12 +34,13 @@ export default function ForgotPasswordPage() {
       return;
     }
 
-    const { error: err } = await authApi.forgotPassword(email.trim().toLowerCase());
+    const { data, error: err } = await authApi.forgotPassword(email.trim().toLowerCase());
     if (err) {
       setError(err);
       setLoading(false);
       return;
     }
+    setResetUrl(data?.resetUrl ?? null);
     setSent(true);
     setLoading(false);
   }
@@ -48,6 +50,16 @@ export default function ForgotPasswordPage() {
       <Alert severity="success" icon={false}>
         If an account exists with this email, you will receive a password reset
         link shortly. Check your inbox (and spam folder).
+        {resetUrl && (
+          <>
+            {" "}
+            Local dev reset link:{" "}
+            <MuiLink component={Link} href={resetUrl}>
+              open reset page
+            </MuiLink>
+            .
+          </>
+        )}
       </Alert>
     );
   }

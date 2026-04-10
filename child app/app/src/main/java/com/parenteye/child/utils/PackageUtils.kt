@@ -1,6 +1,7 @@
 package com.parenteye.child.utils
 
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.SystemClock
@@ -40,6 +41,24 @@ object PackageUtils {
     fun getAppLabel(context: Context, packageName: String): String {
         ensureLabelCache(context)
         return cachedLabels[packageName] ?: packageName
+    }
+
+    fun getLaunchableAppLabels(context: Context): List<String> {
+        val pm: PackageManager = context.packageManager
+        val launcherIntent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+        }
+        val labels = linkedSetOf<String>()
+        val results = pm.queryIntentActivities(launcherIntent, 0)
+        for (item in results) {
+            val label = try {
+                item.loadLabel(pm)?.toString().orEmpty()
+            } catch (_: Exception) {
+                ""
+            }.trim()
+            if (label.isNotEmpty()) labels.add(label)
+        }
+        return labels.sortedBy { it.lowercase(Locale.ROOT) }
     }
 
     fun isBlockedApp(context: Context, prefs: Prefs, packageName: String): Boolean {

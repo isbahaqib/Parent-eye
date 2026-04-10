@@ -66,15 +66,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") return;
     const storedToken = localStorage.getItem(TOKEN_KEY);
     const storedUser = localStorage.getItem(USER_KEY);
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch {
-        localStorage.removeItem(USER_KEY);
-      }
+    if (!storedToken) {
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+
+    setToken(storedToken);
+
+    const restoreSession = async () => {
+      // Re-validate token and hydrate user from API so session survives refreshes reliably.
+      const { data } = await authApi.me(storedToken);
+      if (data) {
+        setUser(data);
+        localStorage.setItem(USER_KEY, JSON.stringify(data));
+        setLoading(false);
+        return;
+      }
+
+      // Fallback: keep previously cached user if present.
+      if (storedUser) {
+        try {
+          setUser(JSON.parse(storedUser));
+          setLoading(false);
+          return;
+        } catch {
+          localStorage.removeItem(USER_KEY);
+        }
+      }
+
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      setToken(null);
+      setUser(null);
+      setLoading(false);
+    };
+
+    void restoreSession();
   }, []);
 
   return (

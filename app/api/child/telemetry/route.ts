@@ -39,6 +39,10 @@ export async function POST(req: NextRequest) {
     todayScreenTimeMinutes?: number | null;
     riskyEvents?: number | null;
     isOnline?: boolean | null;
+    installedApps?: string[] | null;
+    appName?: string | null;
+    durationMinutes?: number | null;
+    eventTimestamp?: number | null;
     harmfulContentDetected?: boolean | null;
     harmfulCategory?: string | null;
     harmfulContentText?: string | null;
@@ -51,10 +55,44 @@ export async function POST(req: NextRequest) {
 
   if (body.location != null) child.location = String(body.location);
   if (body.battery != null) child.battery = Number(body.battery);
-  if (body.activeApp != null) child.activeApp = String(body.activeApp);
+  if (body.activeApp != null) {
+    child.activeApp = String(body.activeApp);
+    const normalizedApp = child.activeApp.trim();
+    if (normalizedApp && normalizedApp.toLowerCase() !== "unknown") {
+      const installed = new Set(child.installedApps ?? []);
+      installed.add(normalizedApp);
+      child.installedApps = Array.from(installed);
+    }
+  }
   if (body.todayScreenTimeMinutes != null) child.todayScreenTimeMinutes = Number(body.todayScreenTimeMinutes);
   if (body.riskyEvents != null) child.riskyEvents = Number(body.riskyEvents);
   if (body.isOnline != null) child.isOnline = Boolean(body.isOnline);
+  if (Array.isArray(body.installedApps)) {
+    const cleaned = Array.from(
+      new Set(
+        body.installedApps
+          .map((name) => String(name).trim())
+          .filter((name) => name.length > 0)
+      )
+    );
+    child.installedApps = cleaned;
+  }
+  if (body.appName != null && body.durationMinutes != null) {
+    const appName = String(body.appName).trim();
+    const durationMinutes = Number(body.durationMinutes);
+    const eventTimestamp = Number(body.eventTimestamp ?? Date.now());
+    if (appName && Number.isFinite(durationMinutes) && durationMinutes > 0) {
+      child.usageEvents = child.usageEvents ?? [];
+      child.usageEvents.push({
+        appName,
+        durationMinutes: Math.max(1, Math.round(durationMinutes)),
+        eventTimestamp: Number.isFinite(eventTimestamp) ? eventTimestamp : Date.now(),
+      });
+      if (child.usageEvents.length > 2000) {
+        child.usageEvents = child.usageEvents.slice(-2000);
+      }
+    }
+  }
   child.lastSeen = new Date().toISOString();
   child.lastSnapshotAt = child.lastSeen;
 
@@ -79,5 +117,9 @@ export async function POST(req: NextRequest) {
   }
 
   await writeDb(db);
-  return NextResponse.json({ message: "Telemetry saved" });
+  return NextResponse.json({
+    message: "Telemetry saved",
+    screenTimeLimitMinutes: child.screenTimeLimitMinutes,
+    blockedApps: child.blockedApps ?? [],
+  });
 }

@@ -16,23 +16,42 @@ export async function GET(
   if (!child) return NextResponse.json({ error: "Child not found" }, { status: 404 });
 
   const range = (req.nextUrl.searchParams.get("range") as Range) || "day";
-  const apps = child.installedApps?.length ? child.installedApps : ["YouTube", "Chrome", "WhatsApp"];
-  const now = Date.now();
-  const timeline = apps.slice(0, 6).map((app, i) => ({
-    appName: app,
-    startedAt: new Date(now - i * 1000 * 60 * 45).toISOString(),
-    durationMinutes: Math.max(5, Math.round((child.todayScreenTimeMinutes || 60) / (i + 2))),
-  }));
+  const dayKey = new Date().toISOString().slice(0, 10);
+  const nowMs = Date.now();
+  const rangeStartMs =
+    range === "month"
+      ? nowMs - 30 * 24 * 60 * 60 * 1000
+      : range === "week"
+        ? nowMs - 7 * 24 * 60 * 60 * 1000
+        : nowMs - 24 * 60 * 60 * 1000;
+  const usage = (child.usageEvents ?? []).filter(
+    (item) =>
+      Number.isFinite(item.eventTimestamp) &&
+      item.eventTimestamp >= rangeStartMs &&
+      item.eventTimestamp <= nowMs
+  );
+
+  const timeline = usage
+    .slice(-100)
+    .map((item) => ({
+      appName: item.appName,
+      startedAt: new Date(item.eventTimestamp).toISOString(),
+      durationMinutes: item.durationMinutes,
+    }))
+    .reverse();
 
   const totalsByApp: Record<string, number> = {};
-  timeline.forEach((t) => {
-    totalsByApp[t.appName] = (totalsByApp[t.appName] || 0) + t.durationMinutes;
-  });
+  const totalsByDay: Record<string, number> = {};
+  for (const item of usage) {
+    totalsByApp[item.appName] = (totalsByApp[item.appName] || 0) + item.durationMinutes;
+    const key = new Date(item.eventTimestamp).toISOString().slice(0, 10);
+    totalsByDay[key] = (totalsByDay[key] || 0) + item.durationMinutes;
+  }
 
-  const dayKey = new Date().toISOString().slice(0, 10);
-  const totalsByDay: Record<string, number> = {
-    [dayKey]: timeline.reduce((acc, item) => acc + item.durationMinutes, 0),
-  };
+  // Ensure "today" always has a value for dashboard card.
+  if (totalsByDay[dayKey] == null) {
+    totalsByDay[dayKey] = Math.max(0, child.todayScreenTimeMinutes ?? 0);
+  }
 
   return NextResponse.json({
     range,

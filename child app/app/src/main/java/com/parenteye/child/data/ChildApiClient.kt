@@ -7,9 +7,14 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 class ChildApiClient(private val prefs: Prefs) {
-    private val http = OkHttpClient()
+    private val http = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .build()
     private val gson = Gson()
 
     private fun apiUrl(path: String): String {
@@ -47,12 +52,13 @@ class ChildApiClient(private val prefs: Prefs) {
             val raw = resp.body?.string().orEmpty()
             if (!resp.isSuccessful) {
                 // Backend often returns { error } or plain { message }.
-                val err = parseErrorMessage(raw) ?: "Link confirm failed"
+                val err = parseErrorMessage(raw)
+                    ?: "Link confirm failed (HTTP ${resp.code}): ${raw.take(180)}"
                 throw IOException(err)
             }
             val parsed = gson.fromJson(raw, ConfirmLinkResponse::class.java)
             if (parsed.childToken.isNullOrBlank() || parsed.child?.id.isNullOrBlank()) {
-                throw IOException("Unexpected link confirm response")
+                throw IOException("Unexpected link confirm response: ${raw.take(180)}")
             }
             val child = parsed.child!!
             return ConfirmLinkResult(
@@ -78,7 +84,7 @@ class ChildApiClient(private val prefs: Prefs) {
         http.newCall(request).execute().use { resp ->
             val raw = resp.body?.string().orEmpty()
             if (!resp.isSuccessful) {
-                val err = parseErrorMessage(raw) ?: "Config fetch failed"
+                val err = parseErrorMessage(raw) ?: "Config fetch failed (HTTP ${resp.code})"
                 throw IOException(err)
             }
             val parsed = gson.fromJson(raw, ChildConfigResponse::class.java)
@@ -105,8 +111,23 @@ class ChildApiClient(private val prefs: Prefs) {
         http.newCall(request).execute().use { resp ->
             if (!resp.isSuccessful) {
                 val raw = resp.body?.string().orEmpty()
-                val err = parseErrorMessage(raw) ?: "Telemetry failed"
+                val err = parseErrorMessage(raw) ?: "Telemetry failed (HTTP ${resp.code})"
                 throw IOException(err)
+            }
+            val raw = resp.body?.string().orEmpty()
+            if (raw.isNotBlank()) {
+                try {
+                    val parsed = gson.fromJson(raw, TelemetryResponse::class.java)
+                    if (parsed.screenTimeLimitMinutes != null) {
+                        prefs.setScreenTimeLimitMinutes(parsed.screenTimeLimitMinutes)
+                    }
+                    if (parsed.blockedApps != null) {
+                        prefs.setBlockedApps(parsed.blockedApps)
+                    }
+                    prefs.setLastConfigFetchMs(System.currentTimeMillis())
+                } catch (_: Exception) {
+                    // Ignore parse errors for backwards compatibility.
+                }
             }
         }
     }
@@ -157,12 +178,19 @@ class ChildApiClient(private val prefs: Prefs) {
         val todayScreenTimeMinutes: Int? = null,
         val riskyEvents: Int? = null,
         val isOnline: Boolean? = null,
+        val installedApps: List<String>? = null,
         val appName: String? = null,
         val durationMinutes: Int? = null,
         val eventTimestamp: Long? = null,
         val harmfulContentDetected: Boolean? = null,
         val harmfulCategory: String? = null,
         val harmfulContentText: String? = null
+    )
+
+    data class TelemetryResponse(
+        val message: String? = null,
+        val screenTimeLimitMinutes: Int? = null,
+        val blockedApps: List<String>? = null
     )
 
     companion object {

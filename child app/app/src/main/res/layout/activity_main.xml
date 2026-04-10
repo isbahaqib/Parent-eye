@@ -41,45 +41,6 @@
                     android:text="Child ID"
                     android:textColor="@color/text_secondary" />
 
-                <TextView
-                    android:id="@+id/screenTimeLimitText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:text="@string/screen_time_limit"
-                    android:textColor="@color/text_primary"
-                    android:textStyle="bold" />
-
-                <com.google.android.material.divider.MaterialDivider
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginTop="10dp"
-                    android:layout_marginBottom="10dp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/blocked_apps"
-                    android:textColor="@color/text_primary"
-                    android:textStyle="bold"
-                    android:textSize="14sp" />
-
-                <com.google.android.material.chip.ChipGroup
-                    android:id="@+id/blockedAppsChipGroup"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    app:singleLine="false" />
-
-                <TextView
-                    android:id="@+id/noBlockedAppsText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="@string/no_blocked_apps"
-                    android:textColor="@color/text_secondary"
-                    android:visibility="gone" />
-
                 <Button
                     android:id="@+id/enableAccessibilityButton"
                     android:layout_width="match_parent"

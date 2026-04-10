@@ -12,6 +12,7 @@ const defaultDb: AppDb = {
   children: [],
   linkCodes: [],
   alerts: [],
+  passwordResetTokens: [],
 };
 
 async function ensureSeedUser(db: AppDb): Promise<AppDb> {
@@ -19,6 +20,7 @@ async function ensureSeedUser(db: AppDb): Promise<AppDb> {
     ...db,
     linkCodes: db.linkCodes ?? [],
     alerts: db.alerts ?? [],
+    passwordResetTokens: db.passwordResetTokens ?? [],
   };
 
   let nextUsers: ParentUser[] = nextDb.users.map((u): ParentUser => ({

@@ -1,115 +1,32 @@
 {
   "users": [
     {
-      "id": "8b8486fb-1692-401a-8c5b-fea79e8ad96f",
+      "id": "3623d0b9-0b48-477a-b29f-01f682b79f2a",
       "email": "parent@example.com",
       "name": "Default Parent",
       "role": "parent",
-      "passwordHash": "1cc005f4542b906b50b8eecd74f4595a:5badfb50c7a40103f8242173270b719a81a103b50f2d958add73f68fceb57cda5d170754f3f33f069b32d2157ab4665b92eba5c85bba6703d6e49b8f7b9c38dd",
-      "createdAt": "2026-04-09T11:52:16.954Z"
+      "passwordHash": "8b2310bbc4da2574be2f199e01470a6c:04fee80bf0cec7770cd32d7b2aceb8c95f5e1e611a2d30f718cf9e23bdde84e57c59ef7db904afa479f6040fa9f43e6355fdc2f09e12c8e91b932a36b7e22c94",
+      "createdAt": "2026-04-09T18:22:34.766Z"
     },
     {
-      "id": "ccc0d418-d431-45bc-915c-3c1af4c116d8",
+      "id": "2f3d2d44-c24f-4dd5-a7e3-0d80918344e4",
       "email": "admin@parenteye.com",
       "name": "Super Admin",
       "role": "super_admin",
-      "passwordHash": "a9e85e41bb5b78e80fcaa2dcc36772a9:6d7c9354a34b06deb62ef9871cdf4ed5b2f8769a6ee0e1a4c431ef2b4dc36b32174be1ff02b6de71618f534d56e2aea9d6aa5f754c444c246e2ff809e34919d5",
-      "createdAt": "2026-04-09T11:52:16.954Z"
+      "passwordHash": "a2165a48c76fd9147cd3ecead40f37f4:807b3d281d72b9fc3d0faf9f4c7194bf8861900779a5f2f8a117a7f9c95f8616433af45021d7c3ae3649f697c6753503e4fd1dff358834536f5995603a620aa8",
+      "createdAt": "2026-04-09T18:22:34.766Z"
     },
     {
-      "id": "7074f6db-430c-49b3-8149-271d25c83921",
+      "id": "7849e105-2e37-474e-9f04-c27b2be429f1",
       "email": "isbahaqib@gmail.com",
       "name": "Isbah",
       "role": "parent",
-      "passwordHash": "ecc85c2eb74fedbbff4ceef3df5c6572:eb11e4707fdedbd1333f36cf2f6c3c6d2564c3efba1f1eff5629eca0c20f75d33228eb21c02ff269b6c215c1153924f882e2f3f4d36dea2aa54c9387594e3c8b",
-      "createdAt": "2026-04-09T11:55:09.758Z"
+      "passwordHash": "c94c6e74e11df6374928b19dce4ef727:ee93f95bda549000f9cd1337899111bc8e968538178f06ab3711b887be97d5d25fe6bb73a24ca32f404e8a3ad8e165f39594722c8585f8921dfaa0588eccb4fd",
+      "createdAt": "2026-04-09T18:37:26.877Z"
     }
   ],
-  "children": [
-    {
-      "id": "280f157b-3894-4abf-a251-7e9e2f007512",
-      "parentId": "7074f6db-430c-49b3-8149-271d25c83921",
-      "name": "Child Device",
-      "age": null,
-      "device": "Android Device",
-      "battery": 100,
-      "location": "Unknown",
-      "lastSeen": "2026-04-09T12:56:54.184Z",
-      "todayScreenTimeMinutes": 0,
-      "screenTimeLimitMinutes": 120,
-      "blockedApps": [
-        "TikTok",
-        "Discord",
-        "Snapchat"
-      ],
-      "blockedWebsites": [
-        "reddit.com",
-        "x.com",
-        "discord.com"
-      ],
-      "installedApps": [],
-      "riskyEvents": 0,
-      "estimatedAge": null,
-      "ageConfidence": 0.95,
-      "ageGroup": "under_13",
-      "suspiciousSignals": [
-        "Unknown active app sessions"
-      ],
-      "suspiciousScore": 0,
-      "lastSnapshotAt": "2026-04-09T12:56:54.184Z",
-      "activeApp": "Unknown",
-      "isOnline": true
-    }
-  ],
-  "linkCodes": [
-    {
-      "id": "3d482623-d626-4aff-9022-d241fae5995f",
-      "parentId": "7074f6db-430c-49b3-8149-271d25c83921",
-      "childName": "Child Device",
-      "code": "767765",
-      "expiresAt": "2026-04-09T12:05:17.383Z",
-      "used": false
-    },
-    {
-      "id": "59a1bec2-0d95-4648-80ce-7caab4efb31d",
-      "parentId": "7074f6db-430c-49b3-8149-271d25c83921",
-      "childName": "Child Device",
-      "code": "911197",
-      "expiresAt": "2026-04-09T12:08:16.915Z",
-      "used": false
-    },
-    {
-      "id": "0a6f2408-d709-4ed7-b5e5-4d96f266a1fa",
-      "parentId": "7074f6db-430c-49b3-8149-271d25c83921",
-      "childName": "Child Device",
-      "code": "814408",
-      "expiresAt": "2026-04-09T12:08:19.456Z",
-      "used": false
-    },
-    {
-      "id": "b455bd87-b2a6-477e-bd37-0c0ebbc6a475",
-      "parentId": "7074f6db-430c-49b3-8149-271d25c83921",
-      "childName": "Child Device",
-      "code": "282366",
-      "expiresAt": "2026-04-09T12:44:52.908Z",
-      "used": false
-    },
-    {
-      "id": "3a95ad60-3bdc-44ed-8adc-1c2435305fc0",
-      "parentId": "7074f6db-430c-49b3-8149-271d25c83921",
-      "childName": "Child Device",
-      "code": "187429",
-      "expiresAt": "2026-04-09T12:49:49.137Z",
-      "used": false
-    },
-    {
-      "id": "0ce03b95-69d7-4af6-8c9c-ae4e40788d99",
-      "parentId": "7074f6db-430c-49b3-8149-271d25c83921",
-      "childName": "Child Device",
-      "code": "139780",
-      "expiresAt": "2026-04-09T13:04:05.470Z",
-      "used": true
-    }
-  ],
-  "alerts": []
+  "children": [],
+  "linkCodes": [],
+  "alerts": [],
+  "passwordResetTokens": []
 }

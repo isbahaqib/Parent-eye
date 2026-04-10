@@ -30,6 +30,11 @@ export type ChildRecord = {
   lastSnapshotAt?: string | null;
   activeApp: string;
   isOnline: boolean;
+  usageEvents?: Array<{
+    appName: string;
+    durationMinutes: number;
+    eventTimestamp: number;
+  }>;
 };
 
 export type ChildLinkCode = {
@@ -52,9 +57,19 @@ export type ParentAlert = {
   createdAt: string;
 };
 
+export type PasswordResetToken = {
+  id: string;
+  userId: string;
+  token: string;
+  expiresAt: string;
+  used: boolean;
+  createdAt: string;
+};
+
 export type AppDb = {
   users: ParentUser[];
   children: ChildRecord[];
   linkCodes?: ChildLinkCode[];
   alerts?: ParentAlert[];
+  passwordResetTokens?: PasswordResetToken[];
 };

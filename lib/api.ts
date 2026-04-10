@@ -73,7 +73,7 @@ export const authApi = {
     }),
 
   forgotPassword: (email: string) =>
-    api<{ message: string }>("/api/auth/forgot-password", {
+    api<{ message: string; resetToken?: string; resetUrl?: string }>("/api/auth/forgot-password", {
       method: "POST",
       body: { email },
     }),

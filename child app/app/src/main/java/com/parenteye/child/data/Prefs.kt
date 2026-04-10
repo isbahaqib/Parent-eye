@@ -96,7 +96,7 @@ class Prefs(context: Context) {
 
     companion object {
         private const val PREFS_NAME = "parenteye_child_prefs"
-        private const val DEFAULT_API_BASE_URL = "http://192.168.8.2:3004"
+        private const val DEFAULT_API_BASE_URL = "http://192.168.8.2:3000"
 
         private const val KEY_API_BASE_URL = "api_base_url"
         private const val KEY_CHILD_TOKEN = "child_token"

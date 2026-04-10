@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
     lastSnapshotAt: now,
     activeApp: body.activeApp ?? "Unknown",
     isOnline: body.isOnline ?? true,
+    usageEvents: [],
   };
   child.suspiciousSignals = computeSuspiciousSignals(child);
   child.suspiciousScore = computeSuspiciousScore(child);

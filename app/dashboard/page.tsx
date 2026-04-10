@@ -65,6 +65,8 @@ type ChildProfile = {
   suspiciousScore: number;
   suspiciousSignals: string[];
   lastSnapshotAt: string | null;
+  activeApp: string;
+  isOnline: boolean;
 };
 
 type DashboardSectionKey =
@@ -98,6 +100,8 @@ const childrenSeed: ChildProfile[] = [
     suspiciousScore: 28,
     suspiciousSignals: ["Screen-time limit exceeded"],
     lastSnapshotAt: new Date().toISOString(),
+    activeApp: "Chrome",
+    isOnline: true,
   },
   {
     id: "child-2",
@@ -119,6 +123,8 @@ const childrenSeed: ChildProfile[] = [
     suspiciousScore: 10,
     suspiciousSignals: [],
     lastSnapshotAt: new Date().toISOString(),
+    activeApp: "YouTube",
+    isOnline: true,
   },
   {
     id: "child-3",
@@ -140,6 +146,8 @@ const childrenSeed: ChildProfile[] = [
     suspiciousScore: 46,
     suspiciousSignals: ["Risky content interactions detected"],
     lastSnapshotAt: new Date().toISOString(),
+    activeApp: "Instagram",
+    isOnline: true,
   },
 ];
 
@@ -163,6 +171,8 @@ function mapApiChildToProfile(c: {
   suspiciousScore?: number;
   suspiciousSignals?: string[];
   lastSnapshotAt?: string | null;
+  activeApp?: string;
+  isOnline?: boolean;
 }): ChildProfile {
   const lastSeen =
     c.lastSeen && c.lastSeen.includes("T")
@@ -189,6 +199,8 @@ function mapApiChildToProfile(c: {
     suspiciousScore: c.suspiciousScore ?? Math.min(100, (c.riskyEvents ?? 0) * 20),
     suspiciousSignals: c.suspiciousSignals ?? [],
     lastSnapshotAt: c.lastSnapshotAt ?? null,
+    activeApp: c.activeApp ?? "Unknown",
+    isOnline: c.isOnline ?? false,
   };
 }
 
@@ -271,6 +283,7 @@ export default function DashboardPage() {
   const [pairError, setPairError] = useState<string | null>(null);
   const [childCrudError, setChildCrudError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<DashboardSectionKey | null>(null);
+  const [syncingNow, setSyncingNow] = useState(false);
 
   async function refreshChildrenFromApi(parentToken: string) {
     const refreshed = await authApi.getParentChildren(parentToken);
@@ -294,20 +307,23 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!token) {
-      setChildren(childrenSeed);
-      setSelectedChildId(childrenSeed[0]?.id ?? "");
+      setChildren([]);
+      setSelectedChildId("");
       setChildListReady(true);
       return;
     }
+    const parentToken = token;
     let cancelled = false;
     setChildListReady(false);
-    (async () => {
-      const { data, error } = await authApi.getParentChildren(token);
+    async function loadChildren(initial = false) {
+      const { data, error } = await authApi.getParentChildren(parentToken);
       if (cancelled) return;
       if (data?.children?.length) {
         const mapped = data.children.map(mapApiChildToProfile);
         setChildren(mapped);
-        setSelectedChildId(mapped[0].id);
+        setSelectedChildId((prev) =>
+          mapped.some((item) => item.id === prev) ? prev : mapped[0].id
+        );
       } else if (error) {
         setChildren([]);
         setSelectedChildId("");
@@ -316,10 +332,15 @@ export default function DashboardPage() {
         setChildren([]);
         setSelectedChildId("");
       }
-      setChildListReady(true);
-    })();
+      if (initial) setChildListReady(true);
+    }
+    void loadChildren(true);
+    const timer = setInterval(() => {
+      void loadChildren(false);
+    }, 10000);
     return () => {
       cancelled = true;
+      clearInterval(timer);
     };
   }, [token]);
 
@@ -342,40 +363,67 @@ export default function DashboardPage() {
       )
     : 0;
   const safeScore = Math.max(0, 100 - totalRiskEvents * 10);
+  const lastSnapshotMs = selectedChild?.lastSnapshotAt
+    ? new Date(selectedChild.lastSnapshotAt).getTime()
+    : NaN;
+  const telemetryAgeMinutes = Number.isFinite(lastSnapshotMs)
+    ? Math.max(0, Math.round((Date.now() - lastSnapshotMs) / 60000))
+    : null;
+  const syncStatus = !selectedChild
+    ? "unknown"
+    : selectedChild.isOnline && telemetryAgeMinutes != null && telemetryAgeMinutes <= 2
+      ? "live"
+      : telemetryAgeMinutes != null && telemetryAgeMinutes <= 10
+        ? "stale"
+        : "offline";
 
   useEffect(() => {
     if (!selectedChild) return;
     setLimitInput(String(selectedChild.screenTimeLimitMinutes));
   }, [selectedChild?.id, selectedChild?.screenTimeLimitMinutes]);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loadActivityReport() {
-      if (!token || !selectedChild) {
-        setActivityReport(null);
-        return;
-      }
-      const { data } = await authApi.getChildActivityReport(
-        token,
-        selectedChild.id,
-        reportRange
-      );
-      if (!cancelled && data) {
-        setActivityReport({
-          timeline: data.timeline || [],
-          totalsByApp: data.totalsByApp || {},
-          totalsByDay: data.totalsByDay || {},
-          suspiciousSignals: data.suspiciousSignals || [],
-          suspiciousScore: data.suspiciousScore || 0,
-          lastSnapshotAt: data.lastSnapshotAt ?? null,
-        });
-      }
+  async function loadSelectedChildActivityReport(
+    currentToken: string | null,
+    childId: string | undefined,
+    range: "day" | "week" | "month"
+  ) {
+    if (!currentToken || !childId) {
+      setActivityReport(null);
+      return;
     }
-    loadActivityReport();
+    const { data } = await authApi.getChildActivityReport(currentToken, childId, range);
+    if (data) {
+      setActivityReport({
+        timeline: data.timeline || [],
+        totalsByApp: data.totalsByApp || {},
+        totalsByDay: data.totalsByDay || {},
+        suspiciousSignals: data.suspiciousSignals || [],
+        suspiciousScore: data.suspiciousScore || 0,
+        lastSnapshotAt: data.lastSnapshotAt ?? null,
+      });
+    }
+  }
+
+  useEffect(() => {
+    async function loadActivityReport() {
+      await loadSelectedChildActivityReport(token, selectedChild?.id, reportRange);
+    }
+    void loadActivityReport();
+    const timer = setInterval(() => {
+      void loadActivityReport();
+    }, 10000);
     return () => {
-      cancelled = true;
+      clearInterval(timer);
     };
   }, [token, selectedChild?.id, reportRange]);
+
+  async function handleForceSyncNow() {
+    if (!token || !selectedChild) return;
+    setSyncingNow(true);
+    await refreshChildrenFromApi(token);
+    await loadSelectedChildActivityReport(token, selectedChild.id, reportRange);
+    setSyncingNow(false);
+  }
 
   useEffect(() => {
     const parentToken = token;
@@ -443,6 +491,8 @@ export default function DashboardPage() {
         suspiciousScore: 0,
         suspiciousSignals: [],
         lastSnapshotAt: new Date().toISOString(),
+        activeApp: "Unknown",
+        isOnline: true,
       };
 
       setChildren((prev) => [...prev, newChild]);
@@ -498,9 +548,6 @@ export default function DashboardPage() {
             ? {
                 ...item,
                 blockedApps: nextBlockedApps,
-                installedApps: item.installedApps.includes(appName)
-                  ? item.installedApps
-                  : [...item.installedApps, appName],
               }
             : item
         )
@@ -512,9 +559,6 @@ export default function DashboardPage() {
             ? {
                 ...item,
                 blockedApps: [...item.blockedApps, appName],
-                installedApps: item.installedApps.includes(appName)
-                  ? item.installedApps
-                  : [...item.installedApps, appName],
               }
             : item
         )
@@ -728,20 +772,11 @@ export default function DashboardPage() {
   }
 
   const installedAppsForSelectedChild = Array.from(
-    new Set([
-      ...(selectedChild?.installedApps ?? []),
-      ...(selectedChild?.blockedApps ?? []),
-      ...Object.keys(activityReport?.totalsByApp || {}),
-      "YouTube",
-      "Chrome",
-      "WhatsApp",
-      "Instagram",
-      "Snapchat",
-      "TikTok",
-      "Discord",
-      "Roblox",
-    ])
+    new Set([...(selectedChild?.installedApps ?? [])])
   ).sort((a, b) => a.localeCompare(b));
+  const blockedInstalledAppsForSelectedChild = (selectedChild?.blockedApps ?? []).filter((app) =>
+    installedAppsForSelectedChild.includes(app)
+  );
 
   if (!childListReady) {
     return (
@@ -768,6 +803,11 @@ export default function DashboardPage() {
     );
     setPairLoading(false);
     if (error) {
+      if (error.toLowerCase().includes("unauthorized")) {
+        setPairError("Session expired. Please login again, then generate a new code.");
+        logout();
+        return;
+      }
       setPairError(error);
       return;
     }
@@ -792,122 +832,15 @@ export default function DashboardPage() {
       return;
     }
     if (error) {
+      if (error.toLowerCase().includes("unauthorized")) {
+        setPairError("Session expired. Please login again.");
+        logout();
+        return;
+      }
       setPairError(error);
       return;
     }
     setPairError("Still no children found. Enter the code on the child app, then refresh again.");
-  }
-
-  if (!selectedChild) {
-    return (
-      <Box
-        sx={{
-          minHeight: "100vh",
-          p: 3,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "#e5e7eb",
-        }}
-      >
-        <Paper sx={{ p: 4, maxWidth: 520, width: "100%" }}>
-          <Typography variant="h6" fontWeight={700} gutterBottom>
-            No Android devices linked yet
-          </Typography>
-          <Typography color="text.secondary" sx={{ mb: 2 }}>
-            Parent Eye supports Android child devices only. Generate a 6-digit code here, enter it
-            in the Android child app (same backend URL), call{" "}
-            <code>/api/child/link/confirm</code> with <code>platform: &quot;android&quot;</code>,
-            then refresh this page.
-          </Typography>
-
-          {token ? (
-            <Stack spacing={2}>
-              <TextField
-                label="Label for this child (optional)"
-                placeholder="e.g. Aarav’s tablet"
-                size="small"
-                fullWidth
-                value={pairChildLabel}
-                onChange={(e) => setPairChildLabel(e.target.value)}
-              />
-              <Button
-                variant="contained"
-                onClick={handleGeneratePairCode}
-                disabled={pairLoading}
-                sx={{ alignSelf: "flex-start" }}
-              >
-                {pairLoading ? "Generating…" : "Generate pairing code"}
-              </Button>
-
-              {pairCode && (
-                <Paper variant="outlined" sx={{ p: 2, bgcolor: "action.hover" }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Enter this code in the Android child app:
-                  </Typography>
-                  <Typography
-                    variant="h4"
-                    fontWeight={800}
-                    letterSpacing={4}
-                    sx={{ my: 1, fontFamily: "monospace" }}
-                  >
-                    {pairCode}
-                  </Typography>
-                  {pairExpiresAt && (
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      Expires: {new Date(pairExpiresAt).toLocaleString()}
-                    </Typography>
-                  )}
-                  <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => {
-                        void navigator.clipboard.writeText(pairCode);
-                      }}
-                    >
-                      Copy code
-                    </Button>
-                    <Button size="small" variant="outlined" onClick={handleRefreshChildrenList}>
-                      I paired — refresh dashboard
-                    </Button>
-                  </Stack>
-                </Paper>
-              )}
-
-              {pairError && (
-                <Alert severity="error" onClose={() => setPairError(null)}>
-                  {pairError}
-                </Alert>
-              )}
-
-              <Typography variant="caption" color="text.secondary" component="div">
-                Android child app: <code>POST …/api/child/link/confirm</code> with body{" "}
-                <code>
-                  {`{ "code": "${pairCode ?? "123456"}", "platform": "android", "childName": "Name", "deviceName": "Phone model" }`}
-                </code>
-              </Typography>
-            </Stack>
-          ) : (
-            <Typography color="text.secondary">
-              Sign in again to generate pairing codes. (Demo mode without login uses sample Android
-              profiles.)
-            </Typography>
-          )}
-
-          <Stack direction="row" sx={{ mt: 3, flexWrap: "wrap", gap: 1 }}>
-            <Button variant="text" onClick={() => router.push("/login")}>
-              Back to sign in
-            </Button>
-            {token && (
-              <Button variant="outlined" onClick={handleRefreshChildrenList}>
-                Refresh linked children
-              </Button>
-            )}
-          </Stack>
-        </Paper>
-      </Box>
-    );
   }
 
   return (
@@ -1017,8 +950,14 @@ export default function DashboardPage() {
             <Select
               labelId="sidebar-children-select-label"
               label="Children"
-              value={selectedChildId}
+              value={children.length ? selectedChildId : ""}
+              displayEmpty
+              renderValue={(v) => {
+                if (!v) return "No devices linked yet";
+                return children.find((c) => c.id === v)?.name ?? "";
+              }}
               onChange={(event) => setSelectedChildId(event.target.value)}
+              disabled={children.length === 0}
               MenuProps={{
                 PaperProps: {
                   sx: { bgcolor: isDark ? "#0f172a" : "#ffffff", color: isDark ? "#e2e8f0" : "#0f172a" },
@@ -1219,6 +1158,113 @@ export default function DashboardPage() {
             </Paper>
           )}
 
+          {isHomePageView && children.length === 0 && (
+            <Paper
+              sx={{
+                p: 2.5,
+                borderRadius: 4,
+                border: "1px solid",
+                borderColor: "divider",
+                mb: 2,
+                boxShadow: isDark
+                  ? "0 4px 14px rgba(2,6,23,0.35)"
+                  : "0 4px 14px rgba(15,23,42,0.06)",
+              }}
+            >
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+                <DevicesOutlinedIcon color="primary" fontSize="small" />
+                <Typography variant="h6" fontWeight={700}>
+                  Link a child Android device
+                </Typography>
+              </Stack>
+              <Typography color="text.secondary" sx={{ mb: 2 }}>
+                Generate a 6-digit pairing code here, enter it in the Parent Eye child app on the
+                device (same server URL), then refresh. You can also use{" "}
+                <strong>Children → Add Child</strong> if your flow creates the profile first.
+              </Typography>
+
+              {token ? (
+                <Stack spacing={2}>
+                  <TextField
+                    label="Label for this child (optional)"
+                    placeholder="e.g. Aarav’s tablet"
+                    size="small"
+                    fullWidth
+                    value={pairChildLabel}
+                    onChange={(e) => setPairChildLabel(e.target.value)}
+                  />
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1} useFlexGap flexWrap="wrap">
+                    <Button
+                      variant="contained"
+                      onClick={() => void handleGeneratePairCode()}
+                      disabled={pairLoading}
+                    >
+                      {pairLoading ? "Generating…" : "Generate pairing code"}
+                    </Button>
+                    <Button variant="outlined" onClick={() => void handleRefreshChildrenList()}>
+                      Refresh linked children
+                    </Button>
+                  </Stack>
+
+                  {pairCode && (
+                    <Paper variant="outlined" sx={{ p: 2, bgcolor: "action.hover" }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Enter this code in the Android child app:
+                      </Typography>
+                      <Typography
+                        variant="h4"
+                        fontWeight={800}
+                        letterSpacing={4}
+                        sx={{ my: 1, fontFamily: "monospace" }}
+                      >
+                        {pairCode}
+                      </Typography>
+                      {pairExpiresAt && (
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          Expires: {new Date(pairExpiresAt).toLocaleString()}
+                        </Typography>
+                      )}
+                      <Stack direction="row" spacing={1} sx={{ mt: 2 }} flexWrap="wrap" useFlexGap>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => {
+                            void navigator.clipboard.writeText(pairCode);
+                          }}
+                        >
+                          Copy code
+                        </Button>
+                      </Stack>
+                    </Paper>
+                  )}
+
+                  {pairError && (
+                    <Alert severity="error" onClose={() => setPairError(null)}>
+                      {pairError}
+                    </Alert>
+                  )}
+
+                  <Typography variant="caption" color="text.secondary" component="div">
+                    Child app confirms with <code>POST …/api/child/link/confirm</code> and body{" "}
+                    <code>
+                      {`{ "code": "${pairCode ?? "123456"}", "platform": "android", "childName": "Name", "deviceName": "Phone model" }`}
+                    </code>
+                  </Typography>
+                </Stack>
+              ) : (
+                <Stack spacing={1.5}>
+                  <Typography color="text.secondary">
+                    Sign in to generate pairing codes. Without an account you can add a local demo
+                    profile for this browser only.
+                  </Typography>
+                  <Button size="small" variant="outlined" onClick={() => setAddChildOpen(true)} sx={{ alignSelf: "flex-start" }}>
+                    Add Child (demo)
+                  </Button>
+                </Stack>
+              )}
+            </Paper>
+          )}
+
 
         {childCrudError && (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setChildCrudError(null)}>
@@ -1320,7 +1366,7 @@ export default function DashboardPage() {
             </Grid>
           )}
 
-          {shouldShowSection("section-child-info") && (
+          {selectedChild && shouldShowSection("section-child-info") && (
           <Grid item xs={12} md={6} id="section-child-info">
             <FeatureCard
               title="Child Info"
@@ -1350,7 +1396,7 @@ export default function DashboardPage() {
           </Grid>
           )}
 
-          {shouldShowSection("section-location") && (
+          {selectedChild && shouldShowSection("section-location") && (
           <Grid item xs={12} md={6} id="section-location">
             <FeatureCard
               title="Location Tracking"
@@ -1396,7 +1442,7 @@ export default function DashboardPage() {
           </Grid>
           )}
 
-          {shouldShowSection("section-screen-time") && (
+          {selectedChild && shouldShowSection("section-screen-time") && (
           <Grid item xs={12} md={6} id="section-screen-time">
             <FeatureCard
               title="Screen Time"
@@ -1431,7 +1477,7 @@ export default function DashboardPage() {
           </Grid>
           )}
 
-          {shouldShowSection("section-activity") && (
+          {selectedChild && shouldShowSection("section-activity") && (
           <Grid item xs={12} md={6} id="section-activity">
             <FeatureCard
               title="Activity Report"
@@ -1528,7 +1574,7 @@ export default function DashboardPage() {
           </Grid>
           )}
 
-          {shouldShowSection("section-apps") && (
+          {selectedChild && shouldShowSection("section-apps") && (
           <Grid item xs={12} md={6} id="section-apps">
             <FeatureCard
               title="App Blocking"
@@ -1544,7 +1590,7 @@ export default function DashboardPage() {
                 />
               </Stack>
               <Stack direction="row" spacing={1} sx={{ mt: 1.2 }} useFlexGap flexWrap="wrap">
-                {selectedChild.blockedApps.map((app) => (
+                {blockedInstalledAppsForSelectedChild.map((app) => (
                   <Chip
                     key={app}
                     label={app}
@@ -1558,6 +1604,11 @@ export default function DashboardPage() {
                 Installed apps on {selectedChild.name}
               </Typography>
               <Stack spacing={0.8}>
+                {installedAppsForSelectedChild.length === 0 && (
+                  <Typography variant="body2" color="text.secondary">
+                    No installed apps reported from this child device yet.
+                  </Typography>
+                )}
                 {installedAppsForSelectedChild.map((app) => {
                   const blocked = selectedChild.blockedApps.includes(app);
                   return (
@@ -1633,7 +1684,7 @@ export default function DashboardPage() {
           </Grid>
           )}
 
-          {shouldShowSection("section-device") && (
+          {selectedChild && shouldShowSection("section-device") && (
           <Grid item xs={12} md={6} id="section-device">
             <FeatureCard
               title="Device Monitoring"
@@ -1643,20 +1694,92 @@ export default function DashboardPage() {
                 <Typography variant="body2" color="text.secondary">
                   Android device health, status, and alerts
                 </Typography>
-                <Switch
-                  checked={deviceMonitoringEnabled}
-                  onChange={(e) => setDeviceMonitoringEnabled(e.target.checked)}
-                />
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Button size="small" variant="outlined" onClick={() => void handleForceSyncNow()} disabled={syncingNow}>
+                    {syncingNow ? "Syncing..." : "Force sync now"}
+                  </Button>
+                  <Switch
+                    checked={deviceMonitoringEnabled}
+                    onChange={(e) => setDeviceMonitoringEnabled(e.target.checked)}
+                  />
+                </Stack>
               </Stack>
               <Typography sx={{ mt: 1 }}>
                 {deviceMonitoringEnabled
-                  ? `${selectedChild.device} is online • Battery ${selectedChild.battery}%`
+                  ? `${selectedChild.device} is ${selectedChild.isOnline ? "online" : "offline"} • Battery ${selectedChild.battery}% • Active app ${selectedChild.activeApp || "Unknown"}`
                   : "Monitoring paused"}
               </Typography>
+              {deviceMonitoringEnabled && (
+                <>
+                  <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1.2 }}>
+                    <Chip
+                      size="small"
+                      color={syncStatus === "live" ? "success" : syncStatus === "stale" ? "warning" : "default"}
+                      label={
+                        syncStatus === "live"
+                          ? "Live sync active"
+                          : syncStatus === "stale"
+                            ? "Sync delayed"
+                            : "Device offline"
+                      }
+                    />
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={
+                        telemetryAgeMinutes == null
+                          ? "No telemetry yet"
+                          : `Last telemetry ${telemetryAgeMinutes} min ago`
+                      }
+                    />
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={
+                        selectedChild.location &&
+                        selectedChild.location !== "Unknown" &&
+                        selectedChild.location !== "Not available"
+                          ? "Location reporting on"
+                          : "Location not available"
+                      }
+                    />
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={`Installed apps: ${selectedChild.installedApps.length}`}
+                    />
+                  </Stack>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+                    Parent controls stay editable and sync to child automatically.
+                  </Typography>
+                </>
+              )}
             </FeatureCard>
           </Grid>
           )}
         </Grid>
+
+        {!selectedChild &&
+          activeSection !== null &&
+          activeSection !== "section-child-list" && (
+            <Paper
+              sx={{
+                p: 2.5,
+                mt: 2,
+                borderRadius: 3,
+                border: "1px solid",
+                borderColor: "divider",
+              }}
+            >
+              <Typography fontWeight={600} gutterBottom>
+                No child device selected
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Go to <strong>Home</strong> to generate a pairing code, open <strong>Children</strong>{" "}
+                to add a profile, then refresh once the Android app is linked.
+              </Typography>
+            </Paper>
+          )}
         </Box>
         </Box>
       </Box>
